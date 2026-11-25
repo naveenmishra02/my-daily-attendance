@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#176b50">
+  <title>My Daily Attendance</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div class="brand-icon">✓</div>
+      <div><p class="eyebrow">PERSONAL TRACKER</p><h1>My Daily Attendance</h1></div>
+    </header>
+
+    <section class="date-card">
+      <p class="eyebrow">TODAY</p>
+      <h2 id="todayDate">—</h2>
+      <p id="status" class="status">Ready to start your day</p>
+    </section>
+
+    <section class="time-grid">
+      <article class="time-card">
+        <span class="eyebrow">☀ MORNING · PUNCH IN</span>
+        <strong id="punchInTime">--:--</strong>
+      </article>
+      <article class="time-card">
+        <span class="eyebrow">☾ EVENING · PUNCH OUT</span>
+        <strong id="punchOutTime">--:--</strong>
+      </article>
+    </section>
+
+    <section class="hours-card">
+      <p class="eyebrow">TOTAL WORKING TIME</p>
+      <strong id="workingHours">--</strong>
+      <small>Elapsed time between punch-in and punch-out</small>
+    </section>
+
+    <div class="actions">
+      <button id="punchInBtn" class="primary">☀ &nbsp; PUNCH IN</button>
+      <button id="punchOutBtn" class="secondary">☾ &nbsp; PUNCH OUT</button>
+    </div>
+
+    <section class="history">
+      <div class="history-heading">
+        <h2>Attendance history</h2>
+        <button id="exportBtn" class="export">Export CSV</button>
+      </div>
+      <div id="historyList" class="history-list"></div>
+    </section>
+    <p class="footnote">Your attendance is saved only on this device. This is a personal tracker, not your employer's official attendance system.</p>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
