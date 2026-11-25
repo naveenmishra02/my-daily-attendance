@@ -37,10 +37,12 @@
     <article class="stat-card"><span>Absent days</span><strong id="absentCount">0</strong></article>
     <article class="stat-card"><span>Attendance</span><strong id="attendancePercent">0%</strong></article>
     <article class="stat-card"><span>Late arrivals</span><strong id="lateCount">0</strong></article>
+    <article class="stat-card"><span>Early departures</span><strong id="earlyCount">0</strong></article>
   </section>
 
   <section class="calendar-section">
     <div class="calendar-heading"><div><p class="eyebrow">MONTHLY VIEW</p><h2>Attendance calendar</h2></div><div class="month-controls"><button id="prevMonth" aria-label="Previous month">‹</button><button id="nextMonth" aria-label="Next month">›</button></div></div>
+    <button id="pdfReportBtn" class="report-button">↓ &nbsp; Download Monthly PDF Report</button>
     <div class="month-label" id="monthLabel"></div>
     <div class="calendar-grid weekdays"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
     <div class="calendar-grid" id="calendarGrid"></div>
@@ -68,9 +70,10 @@
       <label>Office start / expected punch-in <input type="time" id="startTime" value="09:30"></label>
       <label>Office end / expected punch-out <input type="time" id="endTime" value="18:00"></label>
       <label>Late grace period (minutes) <input type="number" id="graceMinutes" min="0" max="240" value="15"></label>
+      <label>Early departure grace period (minutes) <input type="number" id="earlyGraceMinutes" min="0" max="240" value="0"></label>
       <label>Monthly salary (₹) <input type="number" id="monthlySalary" min="0" step="100" value="0" placeholder="e.g. 43000"></label>
       <label>Holidays (one date per line, YYYY-MM-DD)<textarea id="holidayDates" rows="3" placeholder="2026-12-25"></textarea></label>
-      <p class="hint">Sunday is treated as weekly off. Add other company/public holidays above. Absent is counted only for past working days with no punch-in; today and future dates are not marked absent.</p>
+      <p class="hint">Sunday is treated as weekly off. Add other company/public holidays above. Early departure is counted when Punch Out is earlier than office end time minus the early-departure grace period. Absent is counted only for past working days with no punch-in; today and future dates are not marked absent.</p>
       <button id="saveSettings" class="primary">Save settings</button>
     </div>
   </section>

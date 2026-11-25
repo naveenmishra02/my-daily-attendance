@@ -37,3 +37,8 @@
  .actual-label{font-size:12px}
  .actual-time{font-size:17px!important}
 }
+
+/* V3.6 early departure and monthly PDF report */
+.report-button{width:100%;margin:14px 0 4px;padding:12px 14px;border:0;border-radius:12px;background:#176b50;color:#fff;font-size:13px;font-weight:750}
+.stats-grid .stat-card:last-child strong{color:#b35b24}
+@media print{.report-button{display:none}}
