@@ -2,7 +2,12 @@ const KEY="myDailyAttendanceRecordsV1", SETTINGS_KEY="myDailyAttendanceSettingsV
 const $=id=>document.getElementById(id);
 const keyOf=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const dateText=k=>new Date(`${k}T12:00:00`).toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"});
-const timeText=v=>v?new Date(v).toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",hour12:true}):"--:-- --";
+function formatAmPm(date){
+ const h=date.getHours(),m=String(date.getMinutes()).padStart(2,"0");
+ const hour12=h%12||12,ampm=h>=12?"PM":"AM";
+ return `${String(hour12).padStart(2,"0")}:${m} ${ampm}`;
+}
+const timeText=v=>v?formatAmPm(new Date(v)):"Not punched yet";
 const readRecords=()=>{try{return JSON.parse(localStorage.getItem(KEY)||"{}")}catch{return {}}};
 const readSettings=()=>{try{return JSON.parse(localStorage.getItem(SETTINGS_KEY)||"{}")}catch{return {}}};
 let settings={startTime:"09:30",endTime:"18:00",graceMinutes:15,monthlySalary:0,holidays:[],...readSettings()};
@@ -37,9 +42,10 @@ function punch(kind){
  r[kind]=new Date().toISOString();all[k]=r;localStorage.setItem(KEY,JSON.stringify(all));selectedDate=k;render();
 }
 function clockLabel(value){
- const [h,m]=String(value||"09:30").split(":").map(Number);
- const d=new Date();d.setHours(h||0,m||0,0,0);
- return d.toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",hour12:true});
+ const parts=String(value||"09:30").split(":");
+ const h=Number(parts[0]||0),m=Number(parts[1]||0);
+ const hour12=h%12||12,ampm=h>=12?"PM":"AM";
+ return `${String(hour12).padStart(2,"0")}:${String(m).padStart(2,"0")} ${ampm}`;
 }
 function renderToday(){
  const now=new Date(),k=keyOf(now),r=readRecords()[k]||{in:null,out:null};
