@@ -17,12 +17,12 @@
   </section>
 
   <section class="time-grid">
-    <article class="time-card"><span class="eyebrow">☀ MORNING · PUNCH IN</span><strong id="punchInTime">--:--:--</strong><small id="lateStatus"></small></article>
-    <article class="time-card"><span class="eyebrow">☾ EVENING · PUNCH OUT</span><strong id="punchOutTime">--:--:--</strong><small id="outStatus"></small></article>
+    <article class="time-card"><span class="eyebrow">☀ MORNING · PUNCH IN</span><small class="office-time"><span aria-hidden="true">🕘</span> Office time: <strong id="officeStartDisplay">09:30 AM</strong></small><strong id="punchInTime">--:--:--</strong><small id="lateStatus"></small></article>
+    <article class="time-card"><span class="eyebrow">☾ EVENING · PUNCH OUT</span><small class="office-time"><span aria-hidden="true">🕕</span> Office time: <strong id="officeEndDisplay">06:00 PM</strong></small><strong id="punchOutTime">--:--:--</strong><small id="outStatus"></small></article>
   </section>
 
   <section class="hours-card"><p class="eyebrow">TOTAL WORKING TIME</p><strong id="workingHours">0h 0m</strong><small>Live elapsed time between punch-in and punch-out</small></section>
-  <div class="actions"><button id="punchInBtn" class="primary">☀ &nbsp; PUNCH IN</button><button id="punchOutBtn" class="secondary">☾ &nbsp; PUNCH OUT</button></div>
+  <div class="actions"><button id="punchInBtn" class="primary">☀ &nbsp; PUNCH IN · 09:30 AM</button><button id="punchOutBtn" class="secondary">☾ &nbsp; PUNCH OUT · 06:00 PM</button></div>
 
   <section class="stats-grid">
     <article class="stat-card"><span>Present days</span><strong id="presentCount">0</strong></article>

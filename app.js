@@ -36,8 +36,17 @@ function punch(kind){
  if(kind==="out"&&r.out)return alert("Punch Out is already recorded for today.");
  r[kind]=new Date().toISOString();all[k]=r;localStorage.setItem(KEY,JSON.stringify(all));selectedDate=k;render();
 }
+function clockLabel(value){
+ const [h,m]=String(value||"09:30").split(":").map(Number);
+ const d=new Date();d.setHours(h||0,m||0,0,0);
+ return d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+}
 function renderToday(){
  const now=new Date(),k=keyOf(now),r=readRecords()[k]||{in:null,out:null};
+ $("officeStartDisplay").textContent=clockLabel(settings.startTime);
+ $("officeEndDisplay").textContent=clockLabel(settings.endTime||"18:00");
+ $("punchInBtn").textContent=`☀  PUNCH IN · ${clockLabel(settings.startTime)}`;
+ $("punchOutBtn").textContent=`☾  PUNCH OUT · ${clockLabel(settings.endTime||"18:00")}`;
  $("todayDate").textContent=now.toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"});
  $("punchInTime").textContent=timeText(r.in);$("punchOutTime").textContent=timeText(r.out);
  $("workingHours").textContent=durationText(durationFor(r,!!r.in&&!r.out));
