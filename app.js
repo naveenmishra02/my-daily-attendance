@@ -5,7 +5,7 @@ const dateText=k=>new Date(`${k}T12:00:00`).toLocaleDateString(undefined,{weekda
 const timeText=v=>v?new Date(v).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit",second:"2-digit"}):"--:--:--";
 const readRecords=()=>{try{return JSON.parse(localStorage.getItem(KEY)||"{}")}catch{return {}}};
 const readSettings=()=>{try{return JSON.parse(localStorage.getItem(SETTINGS_KEY)||"{}")}catch{return {}}};
-let settings={startTime:"09:00",graceMinutes:15,monthlySalary:0,holidays:[],...readSettings()};
+let settings={startTime:"09:30",endTime:"18:00",graceMinutes:15,monthlySalary:0,holidays:[],...readSettings()};
 let viewMonth=new Date(new Date().getFullYear(),new Date().getMonth(),1), selectedDate=keyOf(new Date());
 
 function durationFor(r,live=false){
@@ -43,7 +43,7 @@ function renderToday(){
  $("workingHours").textContent=durationText(durationFor(r,!!r.in&&!r.out));
  $("status").textContent=!r.in?"Ready to start your day":!r.out?"You are currently punched in":"Today's attendance is complete";
  $("lateStatus").textContent=r.in?(isLate(r)?"Late arrival":"On time"):"";
- $("outStatus").textContent=r.out?"Punch out recorded":"";
+ $("outStatus").textContent=r.out?`Punch out recorded · Office end ${settings.endTime||"18:00"}`:`Office end ${settings.endTime||"18:00"}`;
  $("punchInBtn").disabled=!!r.in;$("punchOutBtn").disabled=!r.in||!!r.out;
 }
 function renderCalendar(){
@@ -83,12 +83,12 @@ $("punchInBtn").addEventListener("click",()=>punch("in"));$("punchOutBtn").addEv
 $("prevMonth").addEventListener("click",()=>{viewMonth=new Date(viewMonth.getFullYear(),viewMonth.getMonth()-1,1);renderCalendar();});
 $("nextMonth").addEventListener("click",()=>{viewMonth=new Date(viewMonth.getFullYear(),viewMonth.getMonth()+1,1);renderCalendar();});
 $("settingsToggle").addEventListener("click",()=>{const p=$("settingsPanel"),show=p.hidden;p.hidden=!show;$("settingsToggle").setAttribute("aria-expanded",String(show));});
-function fillSettings(){$("startTime").value=settings.startTime;$("graceMinutes").value=settings.graceMinutes;$("monthlySalary").value=settings.monthlySalary;$("holidayDates").value=settings.holidays.join("\n");}
+function fillSettings(){$("startTime").value=settings.startTime;$("endTime").value=settings.endTime||"18:00";$("graceMinutes").value=settings.graceMinutes;$("monthlySalary").value=settings.monthlySalary;$("holidayDates").value=settings.holidays.join("\n");}
 $("saveSettings").addEventListener("click",()=>{
  const holidays=$("holidayDates").value.split(/\s+/).map(s=>s.trim()).filter(Boolean);
  const invalid=holidays.find(k=>!/^\d{4}-\d{2}-\d{2}$/.test(k)||Number.isNaN(new Date(`${k}T12:00:00`).getTime()));
  if(invalid)return alert(`Please check holiday date: ${invalid}. Use YYYY-MM-DD.`);
- settings={startTime:$("startTime").value||"09:00",graceMinutes:Math.max(0,Number($("graceMinutes").value)||0),monthlySalary:Math.max(0,Number($("monthlySalary").value)||0),holidays:[...new Set(holidays)]};
+ settings={startTime:$("startTime").value||"09:30",endTime:$("endTime").value||"18:00",graceMinutes:Math.max(0,Number($("graceMinutes").value)||0),monthlySalary:Math.max(0,Number($("monthlySalary").value)||0),holidays:[...new Set(holidays)]};
  localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));render();alert("Settings saved.");
 });
 $("exportBtn").addEventListener("click",()=>{
