@@ -9,74 +9,68 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="app">
-    <header>
-      <div class="brand-icon">✓</div>
-      <div><p class="eyebrow">PERSONAL TRACKER</p><h1>My Daily Attendance</h1></div>
-    </header>
+<main class="app">
+  <header><div class="brand-icon">✓</div><div><p class="eyebrow">PERSONAL TRACKER</p><h1>My Daily Attendance</h1></div></header>
 
-    <section class="date-card">
-      <p class="eyebrow">TODAY</p>
-      <h2 id="todayDate">—</h2>
-      <p id="status" class="status">Ready to start your day</p>
-    </section>
+  <section class="date-card">
+    <p class="eyebrow">TODAY</p><h2 id="todayDate">—</h2><p id="status" class="status">Ready to start your day</p>
+  </section>
 
-    <section class="time-grid">
-      <article class="time-card">
-        <span class="eyebrow">☀ MORNING · PUNCH IN</span>
-        <strong id="punchInTime">--:--</strong>
-      </article>
-      <article class="time-card">
-        <span class="eyebrow">☾ EVENING · PUNCH OUT</span>
-        <strong id="punchOutTime">--:--</strong>
-      </article>
-    </section>
+  <section class="time-grid">
+    <article class="time-card"><span class="eyebrow">☀ MORNING · PUNCH IN</span><strong id="punchInTime">--:--:--</strong><small id="lateStatus"></small></article>
+    <article class="time-card"><span class="eyebrow">☾ EVENING · PUNCH OUT</span><strong id="punchOutTime">--:--:--</strong><small id="outStatus"></small></article>
+  </section>
 
-    <section class="hours-card">
-      <p class="eyebrow">TOTAL WORKING TIME</p>
-      <strong id="workingHours">--</strong>
-      <small>Elapsed time between punch-in and punch-out</small>
-    </section>
+  <section class="hours-card"><p class="eyebrow">TOTAL WORKING TIME</p><strong id="workingHours">0h 0m</strong><small>Live elapsed time between punch-in and punch-out</small></section>
+  <div class="actions"><button id="punchInBtn" class="primary">☀ &nbsp; PUNCH IN</button><button id="punchOutBtn" class="secondary">☾ &nbsp; PUNCH OUT</button></div>
 
-    <div class="actions">
-      <button id="punchInBtn" class="primary">☀ &nbsp; PUNCH IN</button>
-      <button id="punchOutBtn" class="secondary">☾ &nbsp; PUNCH OUT</button>
+  <section class="stats-grid">
+    <article class="stat-card"><span>Present days</span><strong id="presentCount">0</strong></article>
+    <article class="stat-card"><span>Absent days</span><strong id="absentCount">0</strong></article>
+    <article class="stat-card"><span>Attendance</span><strong id="attendancePercent">0%</strong></article>
+    <article class="stat-card"><span>Late arrivals</span><strong id="lateCount">0</strong></article>
+  </section>
+
+  <section class="calendar-section">
+    <div class="calendar-heading"><div><p class="eyebrow">MONTHLY VIEW</p><h2>Attendance calendar</h2></div><div class="month-controls"><button id="prevMonth" aria-label="Previous month">‹</button><button id="nextMonth" aria-label="Next month">›</button></div></div>
+    <div class="month-label" id="monthLabel"></div>
+    <div class="calendar-grid weekdays"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+    <div class="calendar-grid" id="calendarGrid"></div>
+    <div class="legend">
+      <span><i class="dot complete"></i> Present</span><span><i class="dot late"></i> Late</span>
+      <span><i class="dot absent"></i> Absent</span><span><i class="dot holiday"></i> Holiday/off</span>
     </div>
+    <div class="selected-day" id="selectedDay"><strong>Select a date</strong><p>Tap a day to view its attendance details.</p></div>
+    <div class="month-summary" id="monthSummary"></div>
+  </section>
 
-    <section class="calendar-section">
-      <div class="calendar-heading">
-        <div><p class="eyebrow">MONTHLY VIEW</p><h2>Attendance calendar</h2></div>
-        <div class="month-controls">
-          <button id="prevMonth" aria-label="Previous month">‹</button>
-          <button id="nextMonth" aria-label="Next month">›</button>
-        </div>
-      </div>
-      <div class="month-label" id="monthLabel"></div>
-      <div class="calendar-grid weekdays">
-        <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
-      </div>
-      <div class="calendar-grid" id="calendarGrid"></div>
-      <div class="legend">
-        <span><i class="dot present"></i> Punch in recorded</span>
-        <span><i class="dot complete"></i> In + Out complete</span>
-        <span><i class="dot today"></i> Today</span>
-      </div>
-      <div class="selected-day" id="selectedDay">
-        <strong>Select a date</strong>
-        <p>Tap any day in the calendar to view its punch times.</p>
-      </div>
-      <div class="month-summary" id="monthSummary"></div>
-    </section>
+  <section class="totals-grid">
+    <article class="hours-card"><p class="eyebrow">THIS WEEK · WORKING TIME</p><strong id="weeklyHours">0h 0m</strong></article>
+    <article class="hours-card"><p class="eyebrow">THIS MONTH · WORKING TIME</p><strong id="monthlyHours">0h 0m</strong></article>
+  </section>
 
-    <section class="history">
-      <div class="history-heading">
-        <h2>Attendance history</h2>
-        <button id="exportBtn" class="export">Export CSV</button>
-      </div>
-      <div id="historyList" class="history-list"></div>
-    </section>
-    <p class="footnote">Records are saved only on this device. This is a personal tracker, not your employer's official attendance system.</p>
-  </main>
-  <script src="app.js"></script>
-</body>
-</html>
+  <section class="salary-card">
+    <p class="eyebrow">ESTIMATED MONTHLY SALARY</p><strong id="salaryEstimate">₹0</strong>
+    <small id="salaryNote">Set your monthly salary in Settings to calculate an estimate.</small>
+  </section>
+
+  <section class="settings-section">
+    <button class="settings-toggle" id="settingsToggle" aria-expanded="false">⚙ Attendance settings <span>＋</span></button>
+    <div id="settingsPanel" hidden>
+      <label>Expected punch-in time <input type="time" id="startTime" value="09:00"></label>
+      <label>Late grace period (minutes) <input type="number" id="graceMinutes" min="0" max="240" value="15"></label>
+      <label>Monthly salary (₹) <input type="number" id="monthlySalary" min="0" step="100" value="0" placeholder="e.g. 43000"></label>
+      <label>Holidays (one date per line, YYYY-MM-DD)<textarea id="holidayDates" rows="3" placeholder="2026-12-25"></textarea></label>
+      <p class="hint">Sunday is treated as weekly off. Add other company/public holidays above. Absent is counted only for past working days with no punch-in; today and future dates are not marked absent.</p>
+      <button id="saveSettings" class="primary">Save settings</button>
+    </div>
+  </section>
+
+  <section class="history">
+    <div class="history-heading"><h2>Attendance history</h2><button id="exportBtn" class="export">Export CSV</button></div>
+    <div id="historyList" class="history-list"></div>
+  </section>
+  <p class="footnote">Personal attendance tracker. Data is saved locally on this device. Export CSV regularly as a backup.</p>
+</main>
+<script src="app.js"></script>
+</body></html>
