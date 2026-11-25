@@ -17,8 +17,16 @@
   </section>
 
   <section class="time-grid">
-    <article class="time-card"><span class="eyebrow">☀ MORNING · PUNCH IN</span><small class="office-time"><span aria-hidden="true">🕘</span> Office time: <strong id="officeStartDisplay">09:30 AM</strong></small><strong id="punchInTime">--:--:--</strong><small id="lateStatus"></small></article>
-    <article class="time-card"><span class="eyebrow">☾ EVENING · PUNCH OUT</span><small class="office-time"><span aria-hidden="true">🕕</span> Office time: <strong id="officeEndDisplay">06:00 PM</strong></small><strong id="punchOutTime">--:--:--</strong><small id="outStatus"></small></article>
+    <article class="time-card schedule-card morning-card">
+      <h2 class="schedule-title"><span aria-hidden="true">☀️</span> Morning</h2>
+      <strong class="schedule-time" id="officeStartDisplay">09:30 AM</strong>
+      <div class="actual-block"><span class="actual-label">Office Punch In</span><strong class="actual-time" id="punchInTime">--:--</strong><small id="lateStatus"></small></div>
+    </article>
+    <article class="time-card schedule-card evening-card">
+      <h2 class="schedule-title"><span aria-hidden="true">🌙</span> Evening</h2>
+      <strong class="schedule-time" id="officeEndDisplay">06:00 PM</strong>
+      <div class="actual-block"><span class="actual-label">Office Punch Out</span><strong class="actual-time" id="punchOutTime">--:--</strong><small id="outStatus"></small></div>
+    </article>
   </section>
 
   <section class="hours-card"><p class="eyebrow">TOTAL WORKING TIME</p><strong id="workingHours">0h 0m</strong><small>Live elapsed time between punch-in and punch-out</small></section>
