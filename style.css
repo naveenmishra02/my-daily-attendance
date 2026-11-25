@@ -22,3 +22,18 @@
  .actual-label{font-size:13px}
  .actual-time{font-size:19px}
 }
+
+/* V3.4 refinements: compact cards and bold 12-hour clock display */
+.time-card.schedule-card{min-height:225px;padding:22px 18px 18px}
+.schedule-title{font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:23px;font-weight:800;font-style:normal}
+.schedule-time{font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:clamp(29px,8vw,38px)!important;font-weight:850;font-style:normal;letter-spacing:-1px;margin-top:22px}
+.actual-block{padding-top:18px;gap:5px}
+.actual-label{font-size:14px;font-weight:750}
+.actual-time{font-family:system-ui,-apple-system,Segoe UI,sans-serif;font-size:clamp(18px,5vw,25px)!important;font-weight:850;font-style:normal;letter-spacing:-.4px}
+@media(max-width:370px){
+ .time-card.schedule-card{min-height:210px;padding:18px 12px 16px}
+ .schedule-title{font-size:19px}
+ .schedule-time{font-size:27px!important}
+ .actual-label{font-size:12px}
+ .actual-time{font-size:17px!important}
+}

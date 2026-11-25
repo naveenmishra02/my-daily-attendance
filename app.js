@@ -2,7 +2,7 @@ const KEY="myDailyAttendanceRecordsV1", SETTINGS_KEY="myDailyAttendanceSettingsV
 const $=id=>document.getElementById(id);
 const keyOf=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 const dateText=k=>new Date(`${k}T12:00:00`).toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"});
-const timeText=v=>v?new Date(v).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit",second:"2-digit"}):"--:--:--";
+const timeText=v=>v?new Date(v).toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",hour12:true}):"--:-- --";
 const readRecords=()=>{try{return JSON.parse(localStorage.getItem(KEY)||"{}")}catch{return {}}};
 const readSettings=()=>{try{return JSON.parse(localStorage.getItem(SETTINGS_KEY)||"{}")}catch{return {}}};
 let settings={startTime:"09:30",endTime:"18:00",graceMinutes:15,monthlySalary:0,holidays:[],...readSettings()};
@@ -39,7 +39,7 @@ function punch(kind){
 function clockLabel(value){
  const [h,m]=String(value||"09:30").split(":").map(Number);
  const d=new Date();d.setHours(h||0,m||0,0,0);
- return d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+ return d.toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",hour12:true});
 }
 function renderToday(){
  const now=new Date(),k=keyOf(now),r=readRecords()[k]||{in:null,out:null};
@@ -48,11 +48,11 @@ function renderToday(){
  $("punchInBtn").textContent=`☀  PUNCH IN · ${clockLabel(settings.startTime)}`;
  $("punchOutBtn").textContent=`☾  PUNCH OUT · ${clockLabel(settings.endTime||"18:00")}`;
  $("todayDate").textContent=now.toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"});
- $("punchInTime").textContent=timeText(r.in);$("punchOutTime").textContent=timeText(r.out);
+ $("punchInTime").textContent=`Actual: ${timeText(r.in)}`;$("punchOutTime").textContent=`Actual: ${timeText(r.out)}`;
  $("workingHours").textContent=durationText(durationFor(r,!!r.in&&!r.out));
  $("status").textContent=!r.in?"Ready to start your day":!r.out?"You are currently punched in":"Today's attendance is complete";
  $("lateStatus").textContent=r.in?(isLate(r)?"Late arrival":"On time"):"";
- $("outStatus").textContent=r.out?`Punch out recorded · Office end ${settings.endTime||"18:00"}`:`Office end ${settings.endTime||"18:00"}`;
+ $("outStatus").textContent=r.out?"Punch out recorded":"";
  $("punchInBtn").disabled=!!r.in;$("punchOutBtn").disabled=!r.in||!!r.out;
 }
 function renderCalendar(){
