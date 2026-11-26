@@ -40,13 +40,23 @@ function statsFor(keys,all){
  }
  return {present,absent,late,early,minutes,workingDays,percent:workingDays?Math.round(present/workingDays*100):0};
 }
-function punch(kind){
+async function punch(kind){
  const all=readRecords(),k=keyOf(new Date()),r=all[k]||{in:null,out:null};
  if(kind==="in"&&r.in)return alert("Punch In is already recorded for today.");
  if(kind==="out"&&!r.in)return alert("Please Punch In first.");
  if(kind==="out"&&r.out)return alert("Punch Out is already recorded for today.");
- r[kind]=new Date().toISOString();all[k]=r;localStorage.setItem(KEY,JSON.stringify(all));selectedDate=k;render();
+ if(!navigator.geolocation)return alert("GPS is not supported by this browser.");
+ $(kind==="in"?"punchInBtn":"punchOutBtn").disabled=true;
+ try{
+  const position=await getCurrentPosition(),timestamp=new Date().toISOString();
+  r[kind]=timestamp;r[kind+"Location"]={latitude:position.coords.latitude,longitude:position.coords.longitude,accuracy:Math.round(position.coords.accuracy),capturedAt:timestamp};
+  all[k]=r;localStorage.setItem(KEY,JSON.stringify(all));selectedDate=k;render();updateGpsDisplay(position);
+  alert(`${kind==="in"?"Punch In":"Punch Out"} saved with GPS location.`);
+ }catch(error){
+  alert(error.code===1?"Location permission denied. Allow location access in Chrome.":error.code===2?"Location unavailable. Turn on Android Location/GPS.":error.code===3?"GPS timed out. Please try again.":"Could not capture GPS location.");
+ }finally{renderToday();}
 }
+function getCurrentPosition(){return new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:20000,maximumAge:0}));}
 function clockLabel(value){
  const parts=String(value||"09:30").split(":");
  const h=Number(parts[0]||0),m=Number(parts[1]||0);
@@ -97,7 +107,7 @@ function renderCalendar(){
 }
 function renderHistory(){
  const all=readRecords(),keys=Object.keys(all).sort().reverse();
- $("historyList").innerHTML=keys.length?keys.map(k=>{const r=all[k],flags=[isLate(r)?"Late":"",isEarlyDeparture(r)?"Early departure":""].filter(Boolean).join(" · ");return `<div class="record"><div class="record-date">${dateText(k)}${flags?" · "+flags:""}</div><div class="record-detail">In: ${timeText(r.in)} · Out: ${timeText(r.out)}<br>Working time: ${durationText(durationFor(r,k===keyOf(new Date())))}</div></div>`}).join(""):'<div class="empty">No attendance records yet. Tap Punch In to begin.</div>';
+ $("historyList").innerHTML=keys.length?keys.map(k=>{const r=all[k],flags=[isLate(r)?"Late":"",isEarlyDeparture(r)?"Early departure":""].filter(Boolean).join(" · ");return `<div class="record"><div class="record-date">${dateText(k)}${flags?" · "+flags:""}</div><div class="record-detail">In: ${timeText(r.in)} · Out: ${timeText(r.out)}<br>Working time: ${durationText(durationFor(r,k===keyOf(new Date())))}${r.inLocation?`<br>📍 Punch In GPS: <a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${r.inLocation.latitude},${r.inLocation.longitude}">View location</a> (±${r.inLocation.accuracy} m)`:""}${r.outLocation?`<br>📍 Punch Out GPS: <a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${r.outLocation.latitude},${r.outLocation.longitude}">View location</a> (±${r.outLocation.accuracy} m)`:""}</div></div>`}).join(""):'<div class="empty">No attendance records yet. Tap Punch In to begin.</div>';
 }
 function render(){renderToday();renderCalendar();renderHistory();}
 
@@ -197,6 +207,30 @@ function setupNotificationControls(){
  save.insertAdjacentElement("beforebegin", button);
 }
 
+// Live clock and GPS map. Coordinates are saved locally with each punch.
+function setupLiveGpsPanel(){
+ if($("liveGpsPanel"))return;
+ const panel=document.createElement("section");panel.id="liveGpsPanel";
+ panel.style.cssText="margin:16px 0;padding:14px;border:1px solid #d9e2dc;border-radius:14px;background:var(--card,#fff)";
+ panel.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><strong>📍 Live Location & Time</strong><span id="liveClock" style="font-weight:700;font-size:1.15rem;font-variant-numeric:tabular-nums">--:--:-- --</span></div><p id="gpsStatus" style="margin:8px 0">Getting your current location…</p><div id="gpsCoordinates" style="font-size:.9rem;line-height:1.6">Waiting for GPS permission</div><div id="gpsMapWrap" style="margin-top:10px;display:none"><iframe id="gpsMap" title="Your current GPS location" width="100%" height="220" style="border:0;border-radius:10px" loading="lazy"></iframe><a id="gpsOpenMap" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px">Open location in Maps ↗</a></div><button id="refreshGpsBtn" type="button" class="secondary" style="margin-top:10px">Refresh current location</button>`;
+ const anchor=$("punchInBtn");(anchor?.parentElement||$("todayDate")?.parentElement||document.body).insertBefore(panel,anchor||null);
+ $("refreshGpsBtn").addEventListener("click",refreshLiveGps);
+}
+function updateLiveClock(){const el=$("liveClock");if(el)el.textContent=new Date().toLocaleTimeString("en-IN",{timeZone:"Asia/Kolkata",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true});}
+function updateGpsDisplay(position){
+ const lat=position.coords.latitude,lon=position.coords.longitude,accuracy=Math.round(position.coords.accuracy);
+ $("gpsStatus").textContent=`GPS location updated · Accuracy approximately ${accuracy} metres`;
+ $("gpsCoordinates").textContent=`Latitude: ${lat.toFixed(6)} · Longitude: ${lon.toFixed(6)} · Accuracy: ±${accuracy} m`;
+ $("gpsMapWrap").style.display="block";
+ $("gpsMap").src=`https://www.openstreetmap.org/export/embed.html?bbox=${lon-0.01}%2C${lat-0.01}%2C${lon+0.01}%2C${lat+0.01}&layer=mapnik&marker=${lat}%2C${lon}`;
+ $("gpsOpenMap").href=`https://www.google.com/maps?q=${lat},${lon}`;
+}
+function refreshLiveGps(){
+ if(!navigator.geolocation){$("gpsStatus").textContent="GPS is not supported by this browser.";return;}
+ $("gpsStatus").textContent="Getting your current GPS location…";
+ navigator.geolocation.getCurrentPosition(updateGpsDisplay,error=>{$("gpsStatus").textContent=error.code===1?"Location permission denied. Allow location access in Chrome.":error.code===3?"GPS timed out. Try again.":"Location unavailable. Turn on Android Location/GPS and try again."},{enableHighAccuracy:true,timeout:20000,maximumAge:10000});
+}
+function startLiveGps(){setupLiveGpsPanel();updateLiveClock();refreshLiveGps();setInterval(updateLiveClock,1000);if(navigator.geolocation)navigator.geolocation.watchPosition(updateGpsDisplay,()=>{},{enableHighAccuracy:true,maximumAge:15000,timeout:20000});}
 $("punchInBtn").addEventListener("click",()=>punch("in"));$("punchOutBtn").addEventListener("click",()=>punch("out"));
 $("prevMonth").addEventListener("click",()=>{viewMonth=new Date(viewMonth.getFullYear(),viewMonth.getMonth()-1,1);renderCalendar();});
 $("nextMonth").addEventListener("click",()=>{viewMonth=new Date(viewMonth.getFullYear(),viewMonth.getMonth()+1,1);renderCalendar();});
@@ -248,7 +282,7 @@ function monthlyReport(){
 }
 $("pdfReportBtn").addEventListener("click",monthlyReport);
 
-fillSettings();setupNotificationControls();render();
+fillSettings();setupNotificationControls();render();startLiveGps();
 setInterval(()=>{renderToday();renderCalendar();checkAttendanceReminders();},15000);
 checkAttendanceReminders();
 if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js").catch(()=>{});
