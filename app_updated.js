@@ -212,11 +212,38 @@ function setupLiveGpsPanel(){
  if($("liveGpsPanel"))return;
  const panel=document.createElement("section");panel.id="liveGpsPanel";
  panel.style.cssText="margin:16px 0;padding:14px;border:1px solid #d9e2dc;border-radius:14px;background:var(--card,#fff)";
- panel.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><strong>📍 Live Location & Time</strong><span id="liveClock" style="font-weight:700;font-size:1.15rem;font-variant-numeric:tabular-nums">--:--:-- --</span></div><p id="gpsStatus" style="margin:8px 0">Getting your current location…</p><div id="gpsCoordinates" style="font-size:.9rem;line-height:1.6">Waiting for GPS permission</div><div id="gpsMapWrap" style="margin-top:10px;display:none"><iframe id="gpsMap" title="Your current GPS location" width="100%" height="220" style="border:0;border-radius:10px" loading="lazy"></iframe><a id="gpsOpenMap" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px">Open location in Maps ↗</a></div><button id="refreshGpsBtn" type="button" class="secondary" style="margin-top:10px">Refresh current location</button>`;
+ panel.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><strong>📍 Live Location & Time</strong><span id="liveClock" style="font-weight:700;font-size:1.15rem;font-variant-numeric:tabular-nums">--:--:-- --</span></div><p id="gpsStatus" style="margin:8px 0">Getting your current location…</p><div id="gpsPlaceName" style="font-weight:700;margin:6px 0">Finding nearby place name…</div><div id="gpsCoordinates" style="font-size:.9rem;line-height:1.6">Waiting for GPS permission</div><div id="gpsMapWrap" style="margin-top:10px;display:none"><iframe id="gpsMap" title="Your current GPS location" width="100%" height="220" style="border:0;border-radius:10px" loading="lazy"></iframe><a id="gpsOpenMap" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px">Open location in Maps ↗</a></div><button id="refreshGpsBtn" type="button" class="secondary" style="margin-top:10px">Refresh current location</button>`;
  const anchor=$("punchInBtn");(anchor?.parentElement||$("todayDate")?.parentElement||document.body).insertBefore(panel,anchor||null);
  $("refreshGpsBtn").addEventListener("click",refreshLiveGps);
 }
 function updateLiveClock(){const el=$("liveClock");if(el)el.textContent=new Date().toLocaleTimeString("en-IN",{timeZone:"Asia/Kolkata",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true});}
+let lastPlaceLookupAt=0,lastPlaceLookupCoords=null,placeLookupSequence=0;
+function distanceMetres(a,b){
+ const rad=x=>x*Math.PI/180,R=6371000,dLat=rad(b.lat-a.lat),dLon=rad(b.lon-a.lon);
+ const q=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLon/2)**2;
+ return 2*R*Math.asin(Math.sqrt(q));
+}
+async function lookupPlaceName(lat,lon){
+ const now=Date.now(),coords={lat,lon};
+ if(lastPlaceLookupCoords && now-lastPlaceLookupAt<60000 && distanceMetres(lastPlaceLookupCoords,coords)<80)return;
+ lastPlaceLookupAt=now;lastPlaceLookupCoords=coords;
+ const seq=++placeLookupSequence,el=$("gpsPlaceName");
+ if(el)el.textContent="Finding nearby place name…";
+ try{
+  const url=`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=18&addressdetails=1`;
+  const response=await fetch(url,{headers:{Accept:"application/json"}});
+  if(!response.ok)throw new Error(`Geocoding service returned ${response.status}`);
+  const data=await response.json();
+  if(seq!==placeLookupSequence)return;
+  const a=data.address||{};
+  const parts=[a.amenity||a.building||a.shop||a.tourism||a.road||a.pedestrian,a.suburb||a.neighbourhood||a.residential||a.village||a.town||a.city||a.county,a.state].filter(Boolean);
+  const name=parts.length?[...new Set(parts)].join(", "):data.display_name;
+  if(el)el.textContent=name?`📍 ${name}`:"Place name not available for this location";
+ }catch(err){
+  if(seq===placeLookupSequence && el)el.textContent="Place name unavailable right now · GPS coordinates are available";
+  console.warn("Reverse geocoding failed:",err);
+ }
+}
 function updateGpsDisplay(position){
  const lat=position.coords.latitude,lon=position.coords.longitude,accuracy=Math.round(position.coords.accuracy);
  $("gpsStatus").textContent=`GPS location updated · Accuracy approximately ${accuracy} metres`;
@@ -224,6 +251,7 @@ function updateGpsDisplay(position){
  $("gpsMapWrap").style.display="block";
  $("gpsMap").src=`https://www.openstreetmap.org/export/embed.html?bbox=${lon-0.01}%2C${lat-0.01}%2C${lon+0.01}%2C${lat+0.01}&layer=mapnik&marker=${lat}%2C${lon}`;
  $("gpsOpenMap").href=`https://www.google.com/maps?q=${lat},${lon}`;
+ lookupPlaceName(lat,lon);
 }
 function refreshLiveGps(){
  if(!navigator.geolocation){$("gpsStatus").textContent="GPS is not supported by this browser.";return;}
