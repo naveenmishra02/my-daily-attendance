@@ -212,7 +212,7 @@ function setupLiveGpsPanel(){
  if($("liveGpsPanel"))return;
  const panel=document.createElement("section");panel.id="liveGpsPanel";
  panel.style.cssText="margin:16px 0;padding:14px;border:1px solid #d9e2dc;border-radius:14px;background:var(--card,#fff)";
- panel.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><strong>📍 Live Location & Time</strong><span id="liveClock" style="font-weight:700;font-size:1.15rem;font-variant-numeric:tabular-nums">--:--:-- --</span></div><p id="gpsStatus" style="margin:8px 0">Getting your current location…</p><div id="gpsPlaceName" style="font-weight:700;margin:6px 0">Finding nearby place name…</div><div id="gpsCoordinates" style="font-size:.9rem;line-height:1.6">Waiting for GPS permission</div><div id="gpsMapWrap" style="margin-top:10px;display:none"><iframe id="gpsMap" title="Your current GPS location" width="100%" height="220" style="border:0;border-radius:10px" loading="lazy"></iframe><a id="gpsOpenMap" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px">Open location in Maps ↗</a></div><button id="refreshGpsBtn" type="button" class="secondary" style="margin-top:10px">Refresh current location</button>`;
+ panel.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><strong>📍 Live Location & Time</strong><span id="liveClock" style="font-weight:700;font-size:1.15rem;font-variant-numeric:tabular-nums">--:--:-- --</span></div><p id="gpsStatus" style="margin:8px 0">Getting your current location…</p><div id="gpsPlaceName" style="display:block!important;min-height:24px;color:#176b52;font-weight:700;margin:10px 0;padding:8px 10px;background:#eaf5ef;border-radius:8px">Finding nearby place name…</div><div id="gpsCoordinates" style="font-size:.9rem;line-height:1.6">Waiting for GPS permission</div><div id="gpsMapWrap" style="margin-top:10px;display:none"><iframe id="gpsMap" title="Your current GPS location" width="100%" height="220" style="border:0;border-radius:10px" loading="lazy"></iframe><a id="gpsOpenMap" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px">Open location in Maps ↗</a></div><button id="refreshGpsBtn" type="button" class="secondary" style="margin-top:10px">Refresh current location</button>`;
  const anchor=$("punchInBtn");(anchor?.parentElement||$("todayDate")?.parentElement||document.body).insertBefore(panel,anchor||null);
  $("refreshGpsBtn").addEventListener("click",refreshLiveGps);
 }
@@ -233,9 +233,10 @@ function readablePlace(data){
  const parts=[a.amenity||a.building||a.shop||a.tourism||a.road||a.pedestrian||data.locality,data.suburb||a.suburb||a.neighbourhood||a.residential||a.village||a.town||a.city||data.city||data.localityInfo?.administrative?.[0]?.name,data.state||data.principalSubdivision,a.country||data.countryName].filter(Boolean);
  return [...new Set(parts)].slice(0,4).join(", ")||data.display_name||"";
 }
-async function lookupPlaceName(lat,lon){
+async function lookupPlaceName(lat,lon,force=false){
  const now=Date.now(),coords={lat,lon};
- if(lastPlaceLookupCoords&&now-lastPlaceLookupAt<60000&&distanceMetres(lastPlaceLookupCoords,coords)<80)return;
+ // Only throttle successful automatic lookups. Manual refresh always retries.
+ if(!force&&lastPlaceLookupCoords&&now-lastPlaceLookupAt<60000&&distanceMetres(lastPlaceLookupCoords,coords)<80)return;
  const seq=++placeLookupSequence,el=$("gpsPlaceName");
  if(el)el.textContent="Finding nearby place name…";
  try{
@@ -258,19 +259,19 @@ async function lookupPlaceName(lat,lon){
  }
 }
 
-function updateGpsDisplay(position){
+function updateGpsDisplay(position,forcePlaceLookup=false){
  const lat=position.coords.latitude,lon=position.coords.longitude,accuracy=Math.round(position.coords.accuracy);
  $("gpsStatus").textContent=`GPS location updated · Accuracy approximately ${accuracy} metres`;
  $("gpsCoordinates").textContent=`Latitude: ${lat.toFixed(6)} · Longitude: ${lon.toFixed(6)} · Accuracy: ±${accuracy} m`;
  $("gpsMapWrap").style.display="block";
  $("gpsMap").src=`https://www.openstreetmap.org/export/embed.html?bbox=${lon-0.01}%2C${lat-0.01}%2C${lon+0.01}%2C${lat+0.01}&layer=mapnik&marker=${lat}%2C${lon}`;
  $("gpsOpenMap").href=`https://www.google.com/maps?q=${lat},${lon}`;
- lookupPlaceName(lat,lon);
+ lookupPlaceName(lat,lon,forcePlaceLookup);
 }
 function refreshLiveGps(){
  if(!navigator.geolocation){$("gpsStatus").textContent="GPS is not supported by this browser.";return;}
  $("gpsStatus").textContent="Getting your current GPS location…";
- navigator.geolocation.getCurrentPosition(updateGpsDisplay,error=>{$("gpsStatus").textContent=error.code===1?"Location permission denied. Allow location access in Chrome.":error.code===3?"GPS timed out. Try again.":"Location unavailable. Turn on Android Location/GPS and try again."},{enableHighAccuracy:true,timeout:20000,maximumAge:10000});
+ navigator.geolocation.getCurrentPosition(position=>updateGpsDisplay(position,true),error=>{$("gpsStatus").textContent=error.code===1?"Location permission denied. Allow location access in Chrome.":error.code===3?"GPS timed out. Try again.":"Location unavailable. Turn on Android Location/GPS and try again."},{enableHighAccuracy:true,timeout:20000,maximumAge:0});
 }
 function startLiveGps(){setupLiveGpsPanel();updateLiveClock();refreshLiveGps();setInterval(updateLiveClock,1000);if(navigator.geolocation)navigator.geolocation.watchPosition(updateGpsDisplay,()=>{},{enableHighAccuracy:true,maximumAge:15000,timeout:20000});}
 $("punchInBtn").addEventListener("click",()=>punch("in"));$("punchOutBtn").addEventListener("click",()=>punch("out"));
