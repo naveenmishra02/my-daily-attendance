@@ -230,32 +230,40 @@ async function fetchJsonWithTimeout(url,timeoutMs=10000){
 }
 function readablePlace(data){
  const a=data.address||{};
- const parts=[a.amenity||a.building||a.shop||a.tourism||a.road||a.pedestrian||data.locality,data.suburb||a.suburb||a.neighbourhood||a.residential||a.village||a.town||a.city||data.city||data.localityInfo?.administrative?.[0]?.name,data.state||data.principalSubdivision,a.country||data.countryName].filter(Boolean);
- return [...new Set(parts)].slice(0,4).join(", ")||data.display_name||"";
+ // Prefer a named building/POI or street, then the smallest locality,
+ // then city and state. Do not present a broad county as a street-level address.
+ const primary=data.name||a.amenity||a.shop||a.tourism||a.house_name||a.building||a.road||a.pedestrian||a.footway||"";
+ const locality=a.neighbourhood||a.suburb||a.residential||a.quarter||a.village||a.town||a.city_district||a.city||"";
+ const city=a.city||a.town||a.village||a.municipality||"";
+ const state=a.state||"";
+ const parts=[];
+ if(primary)parts.push(primary);
+ if(locality&&locality!==primary)parts.push(locality);
+ if(city&&!parts.includes(city))parts.push(city);
+ if(state&&!parts.includes(state))parts.push(state);
+ if(a.country)parts.push(a.country);
+ return [...new Set(parts)].slice(0,5).join(", ");
 }
 async function lookupPlaceName(lat,lon,force=false){
  const now=Date.now(),coords={lat,lon};
  // Only throttle successful automatic lookups. Manual refresh always retries.
  if(!force&&lastPlaceLookupCoords&&now-lastPlaceLookupAt<60000&&distanceMetres(lastPlaceLookupCoords,coords)<80)return;
  const seq=++placeLookupSequence,el=$("gpsPlaceName");
- if(el)el.textContent="Finding nearby place name…";
+ if(el)el.textContent="Looking up nearby address in OpenStreetMap…";
  try{
-  let name="";
-  // BigDataCloud's browser-friendly reverse-geocoding endpoint (no API key).
-  try{
-   const data=await fetchJsonWithTimeout(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&localityLanguage=en`);
-   name=readablePlace(data);
-  }catch(firstError){
-   // OpenStreetMap Nominatim fallback.
-   const data=await fetchJsonWithTimeout(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=18&addressdetails=1`);
-   name=readablePlace(data);
-  }
+  // Use one deliberate reverse lookup per refresh. Nominatim returns the
+  // closest suitable mapped object, not a guaranteed rooftop address.
+  const url=`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=18&addressdetails=1&layer=address,poi&accept-language=en`;
+  const data=await fetchJsonWithTimeout(url,12000);
   if(seq!==placeLookupSequence)return;
-  if(name){lastPlaceLookupAt=Date.now();lastPlaceLookupCoords=coords;if(el)el.textContent=`📍 ${name}`;}
-  else if(el)el.textContent="Nearby place name not available for these coordinates";
+  const name=readablePlace(data);
+  if(name){
+   lastPlaceLookupAt=Date.now();lastPlaceLookupCoords=coords;
+   if(el)el.textContent=`📍 ${name}`;
+  }else if(el)el.textContent="No detailed street or locality name found in OpenStreetMap. See the map and GPS coordinates below.";
  }catch(err){
-  if(seq===placeLookupSequence&&el)el.textContent="Place name lookup unavailable · Check internet and tap Refresh current location";
-  console.warn("Reverse geocoding failed:",err);
+  if(seq===placeLookupSequence&&el)el.textContent="OpenStreetMap address lookup unavailable · Check internet and tap Refresh current location";
+  console.warn("OpenStreetMap reverse geocoding failed:",err);
  }
 }
 
