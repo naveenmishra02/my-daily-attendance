@@ -223,27 +223,41 @@ function distanceMetres(a,b){
  const q=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLon/2)**2;
  return 2*R*Math.asin(Math.sqrt(q));
 }
+async function fetchJsonWithTimeout(url,timeoutMs=10000){
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
+ try{const response=await fetch(url,{signal:controller.signal,headers:{Accept:"application/json"}});if(!response.ok)throw new Error(`Geocoding service returned ${response.status}`);return await response.json();}
+ finally{clearTimeout(timer);}
+}
+function readablePlace(data){
+ const a=data.address||{};
+ const parts=[a.amenity||a.building||a.shop||a.tourism||a.road||a.pedestrian||data.locality,data.suburb||a.suburb||a.neighbourhood||a.residential||a.village||a.town||a.city||data.city||data.localityInfo?.administrative?.[0]?.name,data.state||data.principalSubdivision,a.country||data.countryName].filter(Boolean);
+ return [...new Set(parts)].slice(0,4).join(", ")||data.display_name||"";
+}
 async function lookupPlaceName(lat,lon){
  const now=Date.now(),coords={lat,lon};
- if(lastPlaceLookupCoords && now-lastPlaceLookupAt<60000 && distanceMetres(lastPlaceLookupCoords,coords)<80)return;
- lastPlaceLookupAt=now;lastPlaceLookupCoords=coords;
+ if(lastPlaceLookupCoords&&now-lastPlaceLookupAt<60000&&distanceMetres(lastPlaceLookupCoords,coords)<80)return;
  const seq=++placeLookupSequence,el=$("gpsPlaceName");
  if(el)el.textContent="Finding nearby place name…";
  try{
-  const url=`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=18&addressdetails=1`;
-  const response=await fetch(url,{headers:{Accept:"application/json"}});
-  if(!response.ok)throw new Error(`Geocoding service returned ${response.status}`);
-  const data=await response.json();
+  let name="";
+  // BigDataCloud's browser-friendly reverse-geocoding endpoint (no API key).
+  try{
+   const data=await fetchJsonWithTimeout(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&localityLanguage=en`);
+   name=readablePlace(data);
+  }catch(firstError){
+   // OpenStreetMap Nominatim fallback.
+   const data=await fetchJsonWithTimeout(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=18&addressdetails=1`);
+   name=readablePlace(data);
+  }
   if(seq!==placeLookupSequence)return;
-  const a=data.address||{};
-  const parts=[a.amenity||a.building||a.shop||a.tourism||a.road||a.pedestrian,a.suburb||a.neighbourhood||a.residential||a.village||a.town||a.city||a.county,a.state].filter(Boolean);
-  const name=parts.length?[...new Set(parts)].join(", "):data.display_name;
-  if(el)el.textContent=name?`📍 ${name}`:"Place name not available for this location";
+  if(name){lastPlaceLookupAt=Date.now();lastPlaceLookupCoords=coords;if(el)el.textContent=`📍 ${name}`;}
+  else if(el)el.textContent="Nearby place name not available for these coordinates";
  }catch(err){
-  if(seq===placeLookupSequence && el)el.textContent="Place name unavailable right now · GPS coordinates are available";
+  if(seq===placeLookupSequence&&el)el.textContent="Place name lookup unavailable · Check internet and tap Refresh current location";
   console.warn("Reverse geocoding failed:",err);
  }
 }
+
 function updateGpsDisplay(position){
  const lat=position.coords.latitude,lon=position.coords.longitude,accuracy=Math.round(position.coords.accuracy);
  $("gpsStatus").textContent=`GPS location updated · Accuracy approximately ${accuracy} metres`;
