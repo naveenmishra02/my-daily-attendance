@@ -49,12 +49,52 @@ async function punch(kind){
  $(kind==="in"?"punchInBtn":"punchOutBtn").disabled=true;
  try{
   const position=await getCurrentPosition(),timestamp=new Date().toISOString();
-  r[kind]=timestamp;r[kind+"Location"]={latitude:position.coords.latitude,longitude:position.coords.longitude,accuracy:Math.round(position.coords.accuracy),capturedAt:timestamp};
+  const latitude=position.coords.latitude,longitude=position.coords.longitude;
+  const placeName=await reverseGeocodeAddress(latitude,longitude);
+  r[kind]=timestamp;
+  r[kind+"Location"]={latitude,longitude,accuracy:Math.round(position.coords.accuracy),capturedAt:timestamp,placeName:placeName||"Address not available"};
   all[k]=r;localStorage.setItem(KEY,JSON.stringify(all));selectedDate=k;render();updateGpsDisplay(position);
   alert(`${kind==="in"?"Punch In":"Punch Out"} saved with GPS location.`);
  }catch(error){
   alert(error.code===1?"Location permission denied. Allow location access in Chrome.":error.code===2?"Location unavailable. Turn on Android Location/GPS.":error.code===3?"GPS timed out. Please try again.":"Could not capture GPS location.");
  }finally{renderToday();}
+}
+async function reverseGeocodeAddress(lat,lon){
+ try{
+  const url=`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=18&addressdetails=1`;
+  const response=await fetch(url,{headers:{Accept:"application/json"}});
+  if(!response.ok)throw new Error(`Geocoding service returned ${response.status}`);
+  const data=await response.json(),a=data.address||{};
+  const parts=[
+   a.amenity||a.building||a.shop||a.tourism,
+   a.road||a.pedestrian||a.footway,
+   a.neighbourhood||a.residential||a.suburb||a.quarter,
+   a.city_district||a.city||a.town||a.village,
+   a.state,
+   a.country
+  ].filter(Boolean);
+  return [...new Set(parts)].join(", ")||data.display_name||"";
+ }catch(error){
+  console.warn("Punch location address lookup failed:",error);
+  return "";
+ }
+}
+function escapeHtml(value){
+ return String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+}
+async function enrichExistingPunchAddresses(){
+ const all=readRecords();let changed=false;
+ for(const [day,record] of Object.entries(all)){
+  for(const kind of ["in","out"]){
+   const loc=record?.[kind+"Location"];
+   if(loc&&loc.latitude!=null&&loc.longitude!=null&&!loc.placeName){
+    const placeName=await reverseGeocodeAddress(loc.latitude,loc.longitude);
+    loc.placeName=placeName||"Address not available";
+    changed=true;
+   }
+  }
+ }
+ if(changed){localStorage.setItem(KEY,JSON.stringify(all));render();}
 }
 function getCurrentPosition(){return new Promise((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:20000,maximumAge:0}));}
 function clockLabel(value){
@@ -70,7 +110,7 @@ function renderToday(){
  $("punchInBtn").textContent=`☀  PUNCH IN · ${clockLabel(settings.startTime)}`;
  $("punchOutBtn").textContent=`☾  PUNCH OUT · ${clockLabel(settings.endTime||"18:00")}`;
  $("todayDate").textContent=now.toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"});
- $("punchInTime").textContent=`Actual: ${timeText(r.in)}`;$("punchOutTime").textContent=`Actual: ${timeText(r.out)}`;
+ $("punchInTime").textContent=`Actual: ${timeText(r.in)}${r.inLocation?.placeName?`\n📍 ${r.inLocation.placeName}`:""}`;$("punchOutTime").textContent=`Actual: ${timeText(r.out)}${r.outLocation?.placeName?`\n📍 ${r.outLocation.placeName}`:""}`;
  $("workingHours").textContent=durationText(durationFor(r,!!r.in&&!r.out));
  $("status").textContent=!r.in?"Ready to start your day":!r.out?"You are currently punched in":"Today's attendance is complete";
  $("lateStatus").textContent=r.in?(isLate(r)?"Late arrival":"On time"):"";
@@ -107,7 +147,7 @@ function renderCalendar(){
 }
 function renderHistory(){
  const all=readRecords(),keys=Object.keys(all).sort().reverse();
- $("historyList").innerHTML=keys.length?keys.map(k=>{const r=all[k],flags=[isLate(r)?"Late":"",isEarlyDeparture(r)?"Early departure":""].filter(Boolean).join(" · ");return `<div class="record"><div class="record-date">${dateText(k)}${flags?" · "+flags:""}</div><div class="record-detail">In: ${timeText(r.in)} · Out: ${timeText(r.out)}<br>Working time: ${durationText(durationFor(r,k===keyOf(new Date())))}${r.inLocation?`<br>📍 Punch In GPS: <a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${r.inLocation.latitude},${r.inLocation.longitude}">View location</a> (±${r.inLocation.accuracy} m)`:""}${r.outLocation?`<br>📍 Punch Out GPS: <a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${r.outLocation.latitude},${r.outLocation.longitude}">View location</a> (±${r.outLocation.accuracy} m)`:""}</div></div>`}).join(""):'<div class="empty">No attendance records yet. Tap Punch In to begin.</div>';
+ $("historyList").innerHTML=keys.length?keys.map(k=>{const r=all[k],flags=[isLate(r)?"Late":"",isEarlyDeparture(r)?"Early departure":""].filter(Boolean).join(" · ");return `<div class="record"><div class="record-date">${dateText(k)}${flags?" · "+flags:""}</div><div class="record-detail">In: ${timeText(r.in)} · Out: ${timeText(r.out)}<br>Working time: ${durationText(durationFor(r,k===keyOf(new Date())))}${r.inLocation?`<br>📍 Punch In: ${escapeHtml(r.inLocation.placeName||"Address not saved")} · <a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${r.inLocation.latitude},${r.inLocation.longitude}">View map</a> (±${r.inLocation.accuracy} m)`:""}${r.outLocation?`<br>📍 Punch Out: ${escapeHtml(r.outLocation.placeName||"Address not saved")} · <a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${r.outLocation.latitude},${r.outLocation.longitude}">View map</a> (±${r.outLocation.accuracy} m)`:""}</div></div>`}).join(""):'<div class="empty">No attendance records yet. Tap Punch In to begin.</div>';
 }
 function render(){renderToday();renderCalendar();renderHistory();}
 
@@ -212,7 +252,7 @@ function setupLiveGpsPanel(){
  if($("liveGpsPanel"))return;
  const panel=document.createElement("section");panel.id="liveGpsPanel";
  panel.style.cssText="margin:16px 0;padding:14px;border:1px solid #d9e2dc;border-radius:14px;background:var(--card,#fff)";
- panel.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><strong>📍 Live Location & Time</strong><span id="liveClock" style="font-weight:700;font-size:1.15rem;font-variant-numeric:tabular-nums">--:--:-- --</span></div><p id="gpsStatus" style="margin:8px 0">Getting your current location…</p><div id="gpsPlaceName" style="display:block!important;min-height:24px;color:#176b52;font-weight:700;margin:10px 0;padding:8px 10px;background:#eaf5ef;border-radius:8px">Finding nearby place name…</div><div id="gpsCoordinates" style="font-size:.9rem;line-height:1.6">Waiting for GPS permission</div><div id="gpsMapWrap" style="margin-top:10px;display:none"><iframe id="gpsMap" title="Your current GPS location" width="100%" height="220" style="border:0;border-radius:10px" loading="lazy"></iframe><a id="gpsOpenMap" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px">Open location in Maps ↗</a></div><button id="refreshGpsBtn" type="button" class="secondary" style="margin-top:10px">Refresh current location</button>`;
+ panel.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><strong>📍 Live Location & Time</strong><span id="liveClock" style="font-weight:700;font-size:1.15rem;font-variant-numeric:tabular-nums">--:--:-- --</span></div><p id="gpsStatus" style="margin:8px 0">Getting your current location…</p><div id="gpsPlaceName" style="font-weight:700;margin:6px 0">Finding nearby place name…</div><div id="gpsCoordinates" style="font-size:.9rem;line-height:1.6">Waiting for GPS permission</div><div id="gpsMapWrap" style="margin-top:10px;display:none"><iframe id="gpsMap" title="Your current GPS location" width="100%" height="220" style="border:0;border-radius:10px" loading="lazy"></iframe><a id="gpsOpenMap" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px">Open location in Maps ↗</a></div><button id="refreshGpsBtn" type="button" class="secondary" style="margin-top:10px">Refresh current location</button>`;
  const anchor=$("punchInBtn");(anchor?.parentElement||$("todayDate")?.parentElement||document.body).insertBefore(panel,anchor||null);
  $("refreshGpsBtn").addEventListener("click",refreshLiveGps);
 }
@@ -223,63 +263,40 @@ function distanceMetres(a,b){
  const q=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLon/2)**2;
  return 2*R*Math.asin(Math.sqrt(q));
 }
-async function fetchJsonWithTimeout(url,timeoutMs=10000){
- const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
- try{const response=await fetch(url,{signal:controller.signal,headers:{Accept:"application/json"}});if(!response.ok)throw new Error(`Geocoding service returned ${response.status}`);return await response.json();}
- finally{clearTimeout(timer);}
-}
-function readablePlace(data){
- const a=data.address||{};
- // Prefer a named building/POI or street, then the smallest locality,
- // then city and state. Do not present a broad county as a street-level address.
- const primary=data.name||a.amenity||a.shop||a.tourism||a.house_name||a.building||a.road||a.pedestrian||a.footway||"";
- const locality=a.neighbourhood||a.suburb||a.residential||a.quarter||a.village||a.town||a.city_district||a.city||"";
- const city=a.city||a.town||a.village||a.municipality||"";
- const state=a.state||"";
- const parts=[];
- if(primary)parts.push(primary);
- if(locality&&locality!==primary)parts.push(locality);
- if(city&&!parts.includes(city))parts.push(city);
- if(state&&!parts.includes(state))parts.push(state);
- if(a.country)parts.push(a.country);
- return [...new Set(parts)].slice(0,5).join(", ");
-}
-async function lookupPlaceName(lat,lon,force=false){
+async function lookupPlaceName(lat,lon){
  const now=Date.now(),coords={lat,lon};
- // Only throttle successful automatic lookups. Manual refresh always retries.
- if(!force&&lastPlaceLookupCoords&&now-lastPlaceLookupAt<60000&&distanceMetres(lastPlaceLookupCoords,coords)<80)return;
+ if(lastPlaceLookupCoords && now-lastPlaceLookupAt<60000 && distanceMetres(lastPlaceLookupCoords,coords)<80)return;
+ lastPlaceLookupAt=now;lastPlaceLookupCoords=coords;
  const seq=++placeLookupSequence,el=$("gpsPlaceName");
- if(el)el.textContent="Looking up nearby address in OpenStreetMap…";
+ if(el)el.textContent="Finding nearby place name…";
  try{
-  // Use one deliberate reverse lookup per refresh. Nominatim returns the
-  // closest suitable mapped object, not a guaranteed rooftop address.
-  const url=`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=18&addressdetails=1&layer=address,poi&accept-language=en`;
-  const data=await fetchJsonWithTimeout(url,12000);
+  const url=`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=18&addressdetails=1`;
+  const response=await fetch(url,{headers:{Accept:"application/json"}});
+  if(!response.ok)throw new Error(`Geocoding service returned ${response.status}`);
+  const data=await response.json();
   if(seq!==placeLookupSequence)return;
-  const name=readablePlace(data);
-  if(name){
-   lastPlaceLookupAt=Date.now();lastPlaceLookupCoords=coords;
-   if(el)el.textContent=`📍 ${name}`;
-  }else if(el)el.textContent="No detailed street or locality name found in OpenStreetMap. See the map and GPS coordinates below.";
+  const a=data.address||{};
+  const parts=[a.amenity||a.building||a.shop||a.tourism||a.road||a.pedestrian,a.suburb||a.neighbourhood||a.residential||a.village||a.town||a.city||a.county,a.state].filter(Boolean);
+  const name=parts.length?[...new Set(parts)].join(", "):data.display_name;
+  if(el)el.textContent=name?`📍 ${name}`:"Place name not available for this location";
  }catch(err){
-  if(seq===placeLookupSequence&&el)el.textContent="OpenStreetMap address lookup unavailable · Check internet and tap Refresh current location";
-  console.warn("OpenStreetMap reverse geocoding failed:",err);
+  if(seq===placeLookupSequence && el)el.textContent="Place name unavailable right now · GPS coordinates are available";
+  console.warn("Reverse geocoding failed:",err);
  }
 }
-
-function updateGpsDisplay(position,forcePlaceLookup=false){
+function updateGpsDisplay(position){
  const lat=position.coords.latitude,lon=position.coords.longitude,accuracy=Math.round(position.coords.accuracy);
  $("gpsStatus").textContent=`GPS location updated · Accuracy approximately ${accuracy} metres`;
  $("gpsCoordinates").textContent=`Latitude: ${lat.toFixed(6)} · Longitude: ${lon.toFixed(6)} · Accuracy: ±${accuracy} m`;
  $("gpsMapWrap").style.display="block";
  $("gpsMap").src=`https://www.openstreetmap.org/export/embed.html?bbox=${lon-0.01}%2C${lat-0.01}%2C${lon+0.01}%2C${lat+0.01}&layer=mapnik&marker=${lat}%2C${lon}`;
  $("gpsOpenMap").href=`https://www.google.com/maps?q=${lat},${lon}`;
- lookupPlaceName(lat,lon,forcePlaceLookup);
+ lookupPlaceName(lat,lon);
 }
 function refreshLiveGps(){
  if(!navigator.geolocation){$("gpsStatus").textContent="GPS is not supported by this browser.";return;}
  $("gpsStatus").textContent="Getting your current GPS location…";
- navigator.geolocation.getCurrentPosition(position=>updateGpsDisplay(position,true),error=>{$("gpsStatus").textContent=error.code===1?"Location permission denied. Allow location access in Chrome.":error.code===3?"GPS timed out. Try again.":"Location unavailable. Turn on Android Location/GPS and try again."},{enableHighAccuracy:true,timeout:20000,maximumAge:0});
+ navigator.geolocation.getCurrentPosition(updateGpsDisplay,error=>{$("gpsStatus").textContent=error.code===1?"Location permission denied. Allow location access in Chrome.":error.code===3?"GPS timed out. Try again.":"Location unavailable. Turn on Android Location/GPS and try again."},{enableHighAccuracy:true,timeout:20000,maximumAge:10000});
 }
 function startLiveGps(){setupLiveGpsPanel();updateLiveClock();refreshLiveGps();setInterval(updateLiveClock,1000);if(navigator.geolocation)navigator.geolocation.watchPosition(updateGpsDisplay,()=>{},{enableHighAccuracy:true,maximumAge:15000,timeout:20000});}
 $("punchInBtn").addEventListener("click",()=>punch("in"));$("punchOutBtn").addEventListener("click",()=>punch("out"));
@@ -295,8 +312,8 @@ $("saveSettings").addEventListener("click",()=>{
  localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));render();alert("Settings saved.");
 });
 $("exportBtn").addEventListener("click",()=>{
- const all=readRecords(),keys=Object.keys(all).sort(),rows=[["Date","Punch In","Punch Out","Working Minutes","Late"]];
- keys.forEach(k=>{const r=all[k];rows.push([k,r.in?new Date(r.in).toLocaleString():"",r.out?new Date(r.out).toLocaleString():"",durationFor(r,k===keyOf(new Date())),isLate(r)?"Yes":"No"]);});
+ const all=readRecords(),keys=Object.keys(all).sort(),rows=[["Date","Punch In","Punch In Place","Punch In Latitude","Punch In Longitude","Punch Out","Punch Out Place","Punch Out Latitude","Punch Out Longitude","Working Minutes","Late"]];
+ keys.forEach(k=>{const r=all[k];rows.push([k,r.in?new Date(r.in).toLocaleString():"",r.inLocation?.placeName||"",r.inLocation?.latitude??"",r.inLocation?.longitude??"",r.out?new Date(r.out).toLocaleString():"",r.outLocation?.placeName||"",r.outLocation?.latitude??"",r.outLocation?.longitude??"",durationFor(r,k===keyOf(new Date())),isLate(r)?"Yes":"No"]);});
  if(!keys.length)return alert("No attendance records to export.");
  const csv=rows.map(row=>row.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n"),url=URL.createObjectURL(new Blob([csv],{type:"text/csv"})),a=document.createElement("a");a.href=url;a.download="my-attendance.csv";a.click();URL.revokeObjectURL(url);
 });
@@ -313,7 +330,7 @@ function monthlyReport(){
   else if(k===today)status="Pending";
   const early=isEarlyDeparture(r);
   if(early)status+=" / Early exit";
-  return `<tr><td>${dateText(k)}</td><td>${status}</td><td>${r?.in?timeText(r.in):"—"}</td><td>${r?.out?timeText(r.out):"—"}</td><td>${durationText(durationFor(r,k===today))}</td><td>${isLate(r)?"Yes":"No"}</td><td>${early?"Yes":"No"}</td></tr>`;
+  return `<tr><td>${dateText(k)}</td><td>${status}</td><td>${r?.in?timeText(r.in):"—"}<br>${escapeHtml(r?.inLocation?.placeName||"")}</td><td>${r?.out?timeText(r.out):"—"}<br>${escapeHtml(r?.outLocation?.placeName||"")}</td><td>${durationText(durationFor(r,k===today))}</td><td>${isLate(r)?"Yes":"No"}</td><td>${early?"Yes":"No"}</td></tr>`;
  }).join("");
  const totalHours=durationText(s.minutes);
  const report=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Attendance Report - ${monthName}</title><style>
@@ -324,7 +341,7 @@ function monthlyReport(){
  <div class="metric"><span>Attendance</span><b>${s.percent}%</b></div><div class="metric"><span>Working time</span><b>${totalHours}</b></div><div class="metric"><span>Scheduled working days</span><b>${s.workingDays}</b></div><div class="metric"><span>Monthly salary setting</span><b>${Number(settings.monthlySalary)?`₹${Number(settings.monthlySalary).toLocaleString("en-IN")}`:"Not set"}</b></div>
  </div>
  <div class="actions"><button onclick="window.print()">Print / Save as PDF</button></div>
- <table><thead><tr><th>Date</th><th>Status</th><th>Punch In</th><th>Punch Out</th><th>Working</th><th>Late</th><th>Early</th></tr></thead><tbody>${rows}</tbody></table>
+ <table><thead><tr><th>Date</th><th>Status</th><th>Punch In / Place</th><th>Punch Out / Place</th><th>Working</th><th>Late</th><th>Early</th></tr></thead><tbody>${rows}</tbody></table>
  <footer>Personal attendance record generated from data stored on this device. This is not an employer-certified attendance statement. Absent is counted only for past scheduled working days without a punch-in. PDF export uses your browser's Print / Save as PDF feature.</footer>
  <script>window.addEventListener("load",()=>setTimeout(()=>window.print(),350));<\/script></body></html>`;
  const win=window.open("","_blank");
@@ -333,7 +350,7 @@ function monthlyReport(){
 }
 $("pdfReportBtn").addEventListener("click",monthlyReport);
 
-fillSettings();setupNotificationControls();render();startLiveGps();
+fillSettings();setupNotificationControls();render();startLiveGps();enrichExistingPunchAddresses();
 setInterval(()=>{renderToday();renderCalendar();checkAttendanceReminders();},15000);
 checkAttendanceReminders();
 if("serviceWorker"in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js").catch(()=>{});
